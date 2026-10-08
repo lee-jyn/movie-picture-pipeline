@@ -27,11 +27,15 @@ jobs:
       - name: Install pipenv
         run: pip install pipenv
 
-      - name: Cache virtualenv
+      - name: Cache pip and pipenv downloads
         uses: actions/cache@v4
         with:
-          path: ~/.local/share/virtualenvs
+          path: |
+            ~/.cache/pip
+            ~/.cache/pipenv
           key: ${{ runner.os }}-pipenv-${{ hashFiles('starter/backend/Pipfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pipenv-
 
       - name: Install dependencies
         run: pipenv install --dev
@@ -53,11 +57,15 @@ jobs:
       - name: Install pipenv
         run: pip install pipenv
 
-      - name: Cache virtualenv
+      - name: Cache pip and pipenv downloads
         uses: actions/cache@v4
         with:
-          path: ~/.local/share/virtualenvs
+          path: |
+            ~/.cache/pip
+            ~/.cache/pipenv
           key: ${{ runner.os }}-pipenv-${{ hashFiles('starter/backend/Pipfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pipenv-
 
       - name: Install dependencies
         run: pipenv install --dev
