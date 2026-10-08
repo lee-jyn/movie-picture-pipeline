@@ -1,0 +1,6 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+node_modules/
+tfplan
+.DS_Store

@@ -1,0 +1,135 @@
+name: Frontend Continuous Deployment
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "starter/frontend/**"
+      - ".github/workflows/frontend-cd.yaml"
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: frontend
+  EKS_CLUSTER_NAME: cluster
+  # URL of the deployed backend service, e.g. http://<backend-load-balancer-hostname>
+  # Set it under Settings > Secrets and variables > Actions > Variables.
+  REACT_APP_MOVIE_API_URL: ${{ vars.REACT_APP_MOVIE_API_URL }}
+
+defaults:
+  run:
+    working-directory: starter/frontend
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: starter/frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: starter/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: starter/frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: starter/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+        env:
+          CI: "true"
+
+  build:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check backend URL is configured
+        run: |
+          if [ -z "$REACT_APP_MOVIE_API_URL" ]; then
+            echo "::error::Repository variable REACT_APP_MOVIE_API_URL is not set (deploy the backend first)"
+            exit 1
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --build-arg=REACT_APP_MOVIE_API_URL=${{ env.REACT_APP_MOVIE_API_URL }} \
+            --tag ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }} .
+
+      - name: Push Docker image to ECR
+        run: |
+          docker push ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Update kubeconfig for EKS
+        run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+      - name: Set image tag in kustomization (not committed)
+        working-directory: starter/frontend/k8s
+        run: |
+          kustomize edit set image frontend=${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+
+      - name: Apply Kubernetes manifests
+        working-directory: starter/frontend/k8s
+        run: kustomize build | kubectl apply -f -
+
+      - name: Wait for rollout
+        run: kubectl rollout status deployment/frontend --timeout=300s
+
+      - name: Show frontend service
+        run: kubectl get svc frontend
