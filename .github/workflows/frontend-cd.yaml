@@ -71,6 +71,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Debug repository variables
+        env:
+          VARS_JSON: ${{ toJSON(vars) }}
+        run: |
+          echo "Visible repository variables:"
+          echo "$VARS_JSON"
+          echo "REACT_APP_MOVIE_API_URL length: ${#REACT_APP_MOVIE_API_URL}"
+
       - name: Check backend URL is configured
         run: |
           if [ -z "$REACT_APP_MOVIE_API_URL" ]; then
