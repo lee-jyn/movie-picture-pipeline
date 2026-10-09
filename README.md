@@ -23,6 +23,21 @@ These URLs stay up during the review and are deleted afterwards.
   `kustomize edit set image` and `kustomize build | kubectl apply -f -`.
 - A failed lint or test stops the build, and a failed build stops the deployment.
 
+## Pipeline runs
+
+Successful runs for each workflow (all jobs green):
+
+| Workflow | Run | Trigger |
+|---|---|---|
+| Frontend Continuous Integration | [Run 37867395818](https://github.com/lee-jyn/movie-picture-pipeline/actions/runs/37867395818) | `workflow_dispatch` on `main` |
+| Frontend Continuous Integration | [Run 37783252590](https://github.com/lee-jyn/movie-picture-pipeline/actions/runs/37783252590) | `pull_request` |
+| Backend Continuous Integration | [Run 37867358893](https://github.com/lee-jyn/movie-picture-pipeline/actions/runs/37867358893) | `workflow_dispatch` on `main` |
+| Backend Continuous Integration | [Run 37783252550](https://github.com/lee-jyn/movie-picture-pipeline/actions/runs/37783252550) | `pull_request` |
+| Frontend Continuous Deployment | [Run 37822478699](https://github.com/lee-jyn/movie-picture-pipeline/actions/runs/37822478699) | `push` to `main` |
+| Backend Continuous Deployment | [Run 37819895756](https://github.com/lee-jyn/movie-picture-pipeline/actions/runs/37819895756) | `push` to `main` |
+
+All runs are listed on the [Actions tab](https://github.com/lee-jyn/movie-picture-pipeline/actions).
+
 ## Configuration
 
 - Secrets: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`. Nothing is hard-coded, and the account ID is masked in logs.
